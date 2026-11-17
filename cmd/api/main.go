@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/chumaachike/social/internal/env"
+	"github.com/chumaachike/social/internal/repository"
 )
 
 func main() {
@@ -11,8 +12,11 @@ func main() {
 		addr: env.GetString("ADDR", ":8080"),
 	}
 
+	repo := repository.NewRepository(nil)
+
 	app := &application{
-		config: cfg,
+		config:     cfg,
+		repository: repo,
 	}
 
 	mux := app.mount()
