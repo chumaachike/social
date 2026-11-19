@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"fmt"
 
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
@@ -23,8 +25,8 @@ type PostRepository struct {
 
 func (r *PostRepository) Create(ctx context.Context, post *Post) error {
 	query := `
-		INSERT INTO post (content, title, user_id, tags)
-		VSALUES ($1, $2, $3, $4) RETURNING id, created_at, updated-at
+		INSERT INTO posts (content, title, user_id, tags)
+		VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at
 	`
 	if err := r.db.QueryRowContext(
 		ctx,
@@ -36,9 +38,35 @@ func (r *PostRepository) Create(ctx context.Context, post *Post) error {
 	).Scan(
 		&post.ID,
 		&post.CreatedAt,
-		post.UpdatedAt,
+		&post.UpdatedAt,
 	); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (r *PostRepository) GetByID(ctx context.Context, id string) (Post, error) {
+	query := `
+		SELECT id, content, title, user_id, tags, created_at, updated_at FROM posts WHERE id= $1
+	`
+	var post Post
+	if err := r.db.QueryRowContext(
+		ctx,
+		query,
+		id,
+	).Scan(
+		&post.ID,
+		&post.Content,
+		&post.Title,
+		&post.UserID,
+		pq.Array(&post.Tags),
+		&post.CreatedAt,
+		&post.UpdatedAt,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Post{}, ErrNotFound
+		}
+		return Post{}, fmt.Errorf("failed to get post by id: %w", err)
+	}
+	return post, nil
 }

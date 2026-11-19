@@ -5,13 +5,13 @@ import (
 	"net/http"
 )
 
-func writeJson(w http.ResponseWriter, status int, data any) error {
+func writeJSON(w http.ResponseWriter, status int, data any) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	return json.NewEncoder(w).Encode(data)
 }
 
-func readJson(w http.ResponseWriter, r *http.Request, data any) error {
+func readJSON(w http.ResponseWriter, r *http.Request, data any) error {
 	maxBytes := 1_048_578 // 1mb
 	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
 
@@ -25,5 +25,5 @@ func writeJSONError(w http.ResponseWriter, status int, message string) error {
 		Error string `json:"Error"`
 	}
 
-	return writeJson(w, status, &envelope{Error: message})
+	return writeJSON(w, status, &envelope{Error: message})
 }

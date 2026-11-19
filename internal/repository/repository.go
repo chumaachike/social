@@ -3,21 +3,25 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 )
 
+var ErrNotFound = errors.New("record not found")
+
 type Repository struct {
-	Posts interface {
+	Post interface {
 		Create(context.Context, *Post) error
+		GetByID(context.Context, string) (Post, error)
 	}
 
-	Users interface {
+	User interface {
 		Create(context.Context, *User) error
 	}
 }
 
 func NewRepository(db *sql.DB) Repository {
 	return Repository{
-		Posts: &PostRepository{db},
-		Users: &UserRepository{db},
+		Post: &PostRepository{db},
+		User: &UserRepository{db},
 	}
 }

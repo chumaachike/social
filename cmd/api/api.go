@@ -34,10 +34,19 @@ func (app *application) mount() http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Recoverer)
+	// Set a timeout value on the request context (ctx), that will signal
+	// through ctx.Done() that the request has time out and further processing should be stopped.
 	r.Use(middleware.Timeout(time.Minute))
 
 	r.Route("/v1", func(r chi.Router) {
 		r.Get("/health", app.healthCheckHandler)
+
+		r.Route("/posts", func(r chi.Router) {
+			r.Post("/", app.createPost)
+			r.Route("/{postID}", func(r chi.Router) {
+				r.Get("/", app.getPost)
+			})
+		})
 	})
 
 	return r
