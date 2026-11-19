@@ -47,7 +47,8 @@ func (app *application) createPost(w http.ResponseWriter, r *http.Request) {
 
 func (app *application) getPost(w http.ResponseWriter, r *http.Request) {
 	postId := chi.URLParam(r, "postID")
-	post, err := app.repository.Post.GetByID(r.Context(), postId)
+	ctx := r.Context()
+	post, err := app.repository.Post.GetByID(ctx, postId)
 	if err != nil {
 		switch {
 		case errors.Is(err, repository.ErrNotFound):
@@ -57,6 +58,14 @@ func (app *application) getPost(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+
+	comments, err := app.repository.Comment.GetByPostID(ctx, postId)
+	if err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+
+	post.Comments = comments
 
 	if err := writeJSON(w, http.StatusOK, post); err != nil {
 		app.internalServerError(w, r, err)

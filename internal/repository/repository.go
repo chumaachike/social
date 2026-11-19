@@ -19,11 +19,15 @@ type Repository struct {
 	User interface {
 		Create(context.Context, *User) error
 	}
+	Comment interface {
+		GetByPostID(context.Context, string) ([]Comment, error)
+	}
 }
 
 func NewRepository(db *sql.DB) Repository {
 	return Repository{
-		Post: &PostRepository{db},
-		User: &UserRepository{db},
+		Post:    &PostRepository{db},
+		User:    &UserRepository{db},
+		Comment: &CommentRepository{db},
 	}
 }
