@@ -9,9 +9,12 @@ import (
 	"github.com/chumaachike/social/internal/repository"
 )
 
+const version = "0.0.1"
+
 func main() {
 	cfg := config{
 		addr: env.GetString("ADDR", ":8080"),
+		env:  "development",
 
 		db: dbConfig{
 			addr:         env.GetString("DB_ADDR", "postgres://admin:adminpassword@localhost:5432/social?sslmode=disable"),
