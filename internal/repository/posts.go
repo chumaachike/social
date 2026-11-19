@@ -73,3 +73,21 @@ func (r *PostRepository) GetByID(ctx context.Context, id string) (Post, error) {
 	}
 	return post, nil
 }
+
+func (r *PostRepository) DeleteByID(ctx context.Context, id string) error {
+	query := `
+		DELETE FROM posts WHERE id = $1
+	`
+	res, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+	rowAffected, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowAffected == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

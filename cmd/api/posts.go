@@ -58,7 +58,7 @@ func (app *application) getPost(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-
+	// Get comments linking post
 	comments, err := app.repository.Comment.GetByPostID(ctx, postId)
 	if err != nil {
 		app.internalServerError(w, r, err)
@@ -68,6 +68,24 @@ func (app *application) getPost(w http.ResponseWriter, r *http.Request) {
 	post.Comments = comments
 
 	if err := writeJSON(w, http.StatusOK, post); err != nil {
+		app.internalServerError(w, r, err)
+		return
+	}
+}
+
+func (app *application) DeletePost(w http.ResponseWriter, r *http.Request) {
+	postId := chi.URLParam(r, "postID")
+	ctx := r.Context()
+	if err := app.repository.Post.DeleteByID(ctx, postId); err != nil {
+		switch {
+		case errors.Is(err, repository.ErrNotFound):
+			app.notFoundResponse(w, r, err)
+		default:
+			app.internalServerError(w, r, err)
+		}
+		return
+	}
+	if err := writeJSON(w, http.StatusOK, "Post deleted"); err != nil {
 		app.internalServerError(w, r, err)
 		return
 	}
