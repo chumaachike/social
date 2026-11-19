@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/chumaachike/social/internal/repository"
@@ -43,11 +44,12 @@ func (app *application) getPost(w http.ResponseWriter, r *http.Request) {
 	postId := chi.URLParam(r, "postID")
 	post, err := app.repository.Post.GetByID(r.Context(), postId)
 	if err != nil {
-		if err == repository.ErrNotFound {
-			writeJSONError(w, http.StatusNotFound, "post not found")
-			return
+		switch {
+		case errors.Is(err, repository.ErrNotFound):
+			writeJSONError(w, http.StatusNotFound, err.Error())
+		default:
+			writeJSONError(w, http.StatusInternalServerError, err.Error())
 		}
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 

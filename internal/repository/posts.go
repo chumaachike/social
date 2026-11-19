@@ -63,10 +63,12 @@ func (r *PostRepository) GetByID(ctx context.Context, id string) (Post, error) {
 		&post.CreatedAt,
 		&post.UpdatedAt,
 	); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			return Post{}, ErrNotFound
+		default:
+			return Post{}, fmt.Errorf("failed to get post by id: %w", err)
 		}
-		return Post{}, fmt.Errorf("failed to get post by id: %w", err)
 	}
 	return post, nil
 }

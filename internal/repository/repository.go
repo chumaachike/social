@@ -6,7 +6,9 @@ import (
 	"errors"
 )
 
-var ErrNotFound = errors.New("record not found")
+var (
+	ErrNotFound = errors.New("record not found")
+)
 
 type Repository struct {
 	Post interface {
