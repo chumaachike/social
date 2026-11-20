@@ -25,6 +25,9 @@ func (r CommentRepository) GetByPostID(ctx context.Context, postID int64) ([]Com
 		WHERE c.post_id = $1
 		ORDER BY c.created_at DESC;
 	`
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
 	rows, err := r.db.QueryContext(ctx, query, postID)
 	if err != nil {
 		return nil, err
