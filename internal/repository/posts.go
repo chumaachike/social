@@ -20,6 +20,7 @@ type Post struct {
 	UpdatedAt string    `json:"updated_at"`
 	Comments  []Comment `json:"comments"`
 }
+
 type PostRepository struct {
 	db *sql.DB
 }
@@ -88,6 +89,21 @@ func (r *PostRepository) DeleteByID(ctx context.Context, id string) error {
 	}
 	if rowAffected == 0 {
 		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *PostRepository) UpdateByID(ctx context.Context, post Post) error {
+	query := `
+		UPDATE posts 
+		SET title = $1,
+			content = $2,
+			updated_at = NOW()
+		WHERE id = $3
+	`
+	_, err := r.db.ExecContext(ctx, query, post.Title, post.Content, post.ID)
+	if err != nil {
+		return err
 	}
 	return nil
 }

@@ -15,13 +15,14 @@ type Repository struct {
 		Create(context.Context, *Post) error
 		GetByID(context.Context, string) (Post, error)
 		DeleteByID(context.Context, string) error
+		UpdateByID(context.Context, Post) error
 	}
 
 	User interface {
 		Create(context.Context, *User) error
 	}
 	Comment interface {
-		GetByPostID(context.Context, string) ([]Comment, error)
+		GetByPostID(context.Context, int64) ([]Comment, error)
 	}
 }
 
