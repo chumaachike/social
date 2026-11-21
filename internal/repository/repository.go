@@ -9,6 +9,7 @@ import (
 
 var (
 	ErrNotFound          = errors.New("record not found")
+	ErrConflict          = errors.New("duplicate key value vioilates unique constraint")
 	QueryTimeoutDuration = time.Second * 5
 )
 
@@ -27,12 +28,17 @@ type Repository struct {
 	Comment interface {
 		GetByPostID(context.Context, int64) ([]Comment, error)
 	}
+	Follower interface {
+		Follow(context.Context, string, string) error
+		Unfollow(context.Context, string, string) error
+	}
 }
 
 func NewRepository(db *sql.DB) Repository {
 	return Repository{
-		Post:    &PostRepository{db},
-		User:    &UserRepository{db},
-		Comment: &CommentRepository{db},
+		Post:     &PostRepository{db},
+		User:     &UserRepository{db},
+		Comment:  &CommentRepository{db},
+		Follower: &FollowerStore{db},
 	}
 }

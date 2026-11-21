@@ -74,25 +74,21 @@
 // 	"Thanks for the information, very useful.",
 // }
 
-// func Seed(repository repository.Storage, db *sql.DB) {
+// func Seed(repository repository.Repository, db *sql.DB) {
 // 	ctx := context.Background()
 
 // 	users := generateUsers(100)
-// 	tx, _ := db.BeginTx(ctx, nil)
 
 // 	for _, user := range users {
-// 		if err := repository.Users.Create(ctx, tx, user); err != nil {
-// 			_ = tx.Rollback()
+// 		if err := repository.User.Create(ctx, user); err != nil {
 // 			log.Println("Error creating user:", err)
 // 			return
 // 		}
 // 	}
 
-// 	tx.Commit()
-
 // 	posts := generatePosts(200, users)
 // 	for _, post := range posts {
-// 		if err := repository.Posts.Create(ctx, post); err != nil {
+// 		if err := repository.Post.Create(ctx, post); err != nil {
 // 			log.Println("Error creating post:", err)
 // 			return
 // 		}
@@ -100,7 +96,7 @@
 
 // 	comments := generateComments(500, users, posts)
 // 	for _, comment := range comments {
-// 		if err := repository.Comments.Create(ctx, comment); err != nil {
+// 		if err := repository.Comment.Create(ctx, comment); err != nil {
 // 			log.Println("Error creating comment:", err)
 // 			return
 // 		}
