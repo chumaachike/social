@@ -11,10 +11,19 @@ import (
 
 const version = "0.0.1"
 
+//	@title			Social API
+//	@description	API for a social networking application.
+//	@BasePath		/v1
+
+// @securityDefinitions.apikey	ApiKeyAuth
+// @in							header
+// @name						Authorization
+// @description				Enter "Bearer" followed by your JWT token.
 func main() {
 	cfg := config{
-		addr: env.GetString("ADDR", ":8080"),
-		env:  "development",
+		addr:   env.GetString("ADDR", ":8080"),
+		apiURL: env.GetString("EXTERNAL_URL", "localhost:8080"),
+		env:    "development",
 
 		db: dbConfig{
 			addr:         env.GetString("DB_ADDR", "postgres://admin:adminpassword@localhost:5432/social?sslmode=disable"),
