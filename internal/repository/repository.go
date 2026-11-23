@@ -19,6 +19,7 @@ type Repository struct {
 		GetByID(context.Context, string) (Post, error)
 		DeleteByID(context.Context, string) error
 		UpdateByID(context.Context, Post) error
+		GetUserFeed(context.Context, string, PaginatedFeedQuery) ([]PostWithMetadata, error)
 	}
 
 	User interface {

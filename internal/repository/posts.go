@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -21,10 +22,112 @@ type Post struct {
 	UpdatedAt string    `json:"updated_at"`
 	Version   int       `json:"version"`
 	Comments  []Comment `json:"comments"`
+	User      User      `json:"user"`
 }
-
+type PostWithMetadata struct {
+	Post
+	CommentsCount int `json:"comment_count"`
+}
 type PostRepository struct {
 	db *sql.DB
+}
+
+func (r *PostRepository) GetUserFeed(
+	ctx context.Context,
+	userID string,
+	fq PaginatedFeedQuery,
+) ([]PostWithMetadata, error) {
+
+	sort := strings.ToUpper(fq.Sort)
+
+	if sort != "ASC" && sort != "DESC" {
+		sort = "DESC"
+	}
+
+	query := `
+        SELECT
+            p.id,
+            p.user_id,
+            p.title,
+            p.content,
+            p.created_at,
+            p.version,
+            p.tags,
+            u.username,
+            COUNT(c.id) AS comments_count
+        FROM posts p
+        LEFT JOIN comments c ON c.post_id = p.id
+        JOIN users u ON p.user_id = u.id
+        WHERE (
+            p.user_id = $1
+            OR EXISTS (
+                SELECT 1
+                FROM followers f
+                WHERE f.user_id = p.user_id
+                AND f.follower_id = $1
+            )
+        )
+        AND (
+            p.title ILIKE '%' || $4 || '%'
+            OR p.content ILIKE '%' || $4 || '%'
+        )
+        AND (
+			$5::varchar[] IS NULL
+			OR $5::varchar[] = '{}'
+			OR p.tags @> $5::varchar[]
+		)
+        GROUP BY p.id, u.username
+        ORDER BY p.created_at ` + sort + `, p.id ` + sort + `
+        LIMIT $2 OFFSET $3
+    `
+
+	ctx, cancel := context.WithTimeout(
+		ctx,
+		QueryTimeoutDuration,
+	)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(
+		ctx,
+		query,
+		userID,
+		fq.Limit,
+		fq.Offset,
+		fq.Search,
+		pq.Array(fq.Tags),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query user feed: %w", err)
+	}
+	defer rows.Close()
+
+	feed := make([]PostWithMetadata, 0)
+
+	for rows.Next() {
+		var post PostWithMetadata
+
+		if err := rows.Scan(
+			&post.ID,
+			&post.UserID,
+			&post.Title,
+			&post.Content,
+			&post.CreatedAt,
+			&post.Version,
+			pq.Array(&post.Tags),
+			&post.User.Username,
+			&post.CommentsCount,
+		); err != nil {
+			return nil, fmt.Errorf("scan feed post: %w", err)
+		}
+
+		feed = append(feed, post)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate user feed: %w", err)
+	}
+
+	return feed, nil
 }
 
 func (r *PostRepository) Create(ctx context.Context, post *Post) error {
