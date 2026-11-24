@@ -11,10 +11,10 @@ import (
 
 const version = "0.0.1"
 
-//	@title			Social API
-//	@description	API for a social networking application.
-//	@BasePath		/v1
-
+// @title						Social API
+// @version					0.0.1
+// @description				API for a social networking application.
+// @BasePath					/v1
 // @securityDefinitions.apikey	ApiKeyAuth
 // @in							header
 // @name						Authorization

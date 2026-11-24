@@ -22,7 +22,7 @@ migrate-force:
 
 gen-docs:
 	@swag fmt -d cmd,internal
-	@swag init -g api/main.go -d cmd,internal
+	@swag init -g main.go -d cmd/api,internal --parseInternal
 
 run:
 	@go run ./cmd/api
