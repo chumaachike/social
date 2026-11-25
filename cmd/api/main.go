@@ -1,12 +1,12 @@
 package main
 
 import (
-	"log"
 	"time"
 
 	"github.com/chumaachike/social/internal/db"
 	"github.com/chumaachike/social/internal/env"
 	"github.com/chumaachike/social/internal/repository"
+	"go.uber.org/zap"
 )
 
 const version = "0.0.1"
@@ -15,7 +15,6 @@ const version = "0.0.1"
 // @version					0.0.1
 // @description				API for a social networking application.
 // @BasePath					/v1
-// @securityDefinitions.apikey	ApiKeyAuth
 // @in							header
 // @name						Authorization
 // @description				Enter "Bearer" followed by your JWT token.
@@ -33,22 +32,27 @@ func main() {
 		},
 	}
 
+	// Logger
+	logger := zap.Must(zap.NewProduction()).Sugar()
+	defer logger.Sync()
+
 	db, err := db.New(cfg.db.addr, cfg.db.maxOpenConns, cfg.db.maxIdleConns, cfg.db.maxIdleTime)
 
 	if err != nil {
-		log.Panic(err)
+		logger.Fatal(err)
 	}
 
 	defer db.Close()
-	log.Println("db connection pool established")
+	logger.Info("db connection pool established")
 
 	repo := repository.NewRepository(db)
 
 	app := &application{
 		config:     cfg,
 		repository: repo,
+		logger:     logger,
 	}
 
 	mux := app.mount()
-	log.Fatal(app.run(mux))
+	logger.Fatal(app.run(mux))
 }
