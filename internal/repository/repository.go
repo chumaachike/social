@@ -25,6 +25,7 @@ type Repository struct {
 	User interface {
 		Create(context.Context, *User) error
 		GetUser(context.Context, string) (User, error)
+		CreateAndInvite(context.Context, *User, string) error
 	}
 	Comment interface {
 		GetByPostID(context.Context, int64) ([]Comment, error)
