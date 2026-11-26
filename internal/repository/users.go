@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -36,11 +37,11 @@ func (p *password) Set(text string) error {
 	return nil
 }
 
-func (r *UserRepository) Create(ctx context.Context, user *User) error {
+func (r *UserRepository) Create(ctx context.Context, tx *sql.Tx, user *User) error {
 	query := `
 		INSERT INTO users(username, password, email) VALUES ($1, $2, $3) RETURNING id, created_at
 	`
-	if err := r.db.QueryRowContext(
+	err := r.db.QueryRowContext(
 		ctx,
 		query,
 		user.Username,
@@ -49,8 +50,16 @@ func (r *UserRepository) Create(ctx context.Context, user *User) error {
 	).Scan(
 		&user.ID,
 		&user.CreatedAt,
-	); err != nil {
-		return err
+	)
+	if err != nil {
+		switch {
+		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key"`:
+			return ErrDuplicateEmail
+		case err.Error() == `pq: duplicate key value violates unique constraint "users_email_key"`:
+			return ErrDuplicateUsername
+		default:
+			return err
+		}
 	}
 	return nil
 }
@@ -79,6 +88,29 @@ func (r UserRepository) GetUser(ctx context.Context, userID string) (User, error
 	return user, nil
 }
 
-func (r *UserRepository) CreateAndInvite(ctx context.Context, user *User, token string) error {
+func (r *UserRepository) CreateAndInvite(ctx context.Context, user *User, token string, invitationExp time.Duration) error {
+	return withTx(r.db, ctx, func(tx *sql.Tx) error {
+		if err := r.Create(ctx, tx, user); err != nil {
+			return err
+		}
+
+		if err := r.createUserInvitation(ctx, tx, token, invitationExp, user.ID); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (r *UserRepository) createUserInvitation(ctx context.Context, tx *sql.Tx, token string, invitationExp time.Duration, userID int64) error {
+	query := `INSERT INTO user_invitations (token, user_id, expiry) VALUES ($1, $2, $3)`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	_, err := tx.ExecContext(ctx, query, token, userID, time.Now().Add(invitationExp))
+
+	if err != nil {
+		return err
+	}
 	return nil
 }

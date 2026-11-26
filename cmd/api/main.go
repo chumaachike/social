@@ -23,6 +23,9 @@ func main() {
 		addr:   env.GetString("ADDR", ":8080"),
 		apiURL: env.GetString("EXTERNAL_URL", "localhost:8080"),
 		env:    "development",
+		mail: mailConfig{
+			exp: time.Hour * 24 * 3,
+		},
 
 		db: dbConfig{
 			addr:         env.GetString("DB_ADDR", "postgres://admin:adminpassword@localhost:5432/social?sslmode=disable"),
