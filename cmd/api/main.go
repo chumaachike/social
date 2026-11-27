@@ -11,13 +11,13 @@ import (
 
 const version = "0.0.1"
 
-// @title						Social API
-// @version					0.0.1
-// @description				API for a social networking application.
-// @BasePath					/v1
-// @in							header
-// @name						Authorization
-// @description				Enter "Bearer" followed by your JWT token.
+// @title			Social API
+// @version		0.0.1
+// @description	API for a social networking application.
+// @BasePath		/v1
+// @in				header
+// @name			Authorization
+// @description	Enter "Bearer" followed by your JWT token.
 func main() {
 	cfg := config{
 		addr:   env.GetString("ADDR", ":8080"),

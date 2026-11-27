@@ -45,7 +45,7 @@ func (r *UserRepository) Create(ctx context.Context, tx *sql.Tx, user *User) err
 		ctx,
 		query,
 		user.Username,
-		user.Password,
+		user.Password.hash,
 		user.Email,
 	).Scan(
 		&user.ID,

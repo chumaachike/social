@@ -20,16 +20,15 @@ const userCtx userKey = "user"
 //	@Summary		Fetches a user profile
 //	@Description	Fetches a user profile by ID
 //	@Tags			users
-//	@Accept			json
 //	@Produce		json
-//	@Param			id	path		int	true	"User ID"
-//	@Success		200	{object}	repository.User
-//	@Failure		400	{object}	error
-//	@Failure		401	{object}	error
-//	@Failure		404	{object}	error
-//	@Failure		500	{object}	error
+//	@Param			userID	path		int	true	"User ID"
+//	@Success		200		{object}	repository.User
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		404		{string}	string
+//	@Failure		500		{object}	ErrorResponse
 //	@Security		ApiKeyAuth
-//	@Router			/users/{id} [get]
+//	@Router			/users/{userID} [get]
 func (app *application) getUser(w http.ResponseWriter, r *http.Request) {
 	user, ok := getUserFromContext(r)
 	if !ok {
@@ -43,6 +42,21 @@ func (app *application) getUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// FollowUser godoc
+//
+//	@Summary		Follow a user
+//	@Description	Allows an authenticated user to follow another user
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Param			payload	body	FollowUser	true	"User to follow"
+//	@Success		204		"No Content"
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		409		{object}	ErrorResponse
+//	@Failure		500		{object}	ErrorResponse
+//	@Security		ApiKeyAuth
+//	@Router			/users/follow [post]
 func (app *application) followUser(w http.ResponseWriter, r *http.Request) {
 	user, ok := getUserFromContext(r)
 	if !ok {
@@ -90,9 +104,24 @@ func (app *application) followUser(w http.ResponseWriter, r *http.Request) {
 }
 
 type FollowUser struct {
+	// ID of the user to follow or unfollow
 	UserID string `json:"user_id"`
 }
 
+// UnfollowUser godoc
+//
+//	@Summary		Unfollow a user
+//	@Description	Allows an authenticated user to unfollow another user
+//	@Tags			users
+//	@Accept			json
+//	@Produce		json
+//	@Param			payload	body	FollowUser	true	"User to unfollow"
+//	@Success		204		"No Content"
+//	@Failure		400		{object}	ErrorResponse
+//	@Failure		401		{object}	ErrorResponse
+//	@Failure		500		{object}	ErrorResponse
+//	@Security		ApiKeyAuth
+//	@Router			/users/unfollow [post]
 func (app *application) unfollowUser(w http.ResponseWriter, r *http.Request) {
 	user, ok := getUserFromContext(r)
 	if !ok {
