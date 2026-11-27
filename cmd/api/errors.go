@@ -27,3 +27,8 @@ func (app *application) conflictResponse(w http.ResponseWriter, r *http.Request,
 	app.logger.Errorf("conflic response", "method", r.Method, "path", r.URL.Path, "error", err.Error())
 	writeJSONError(w, http.StatusConflict, "the server encountered a problem")
 }
+
+func (app *application) unauthorizedResponse(w http.ResponseWriter, r *http.Request, err error) {
+	app.logger.Errorf("unauthorized response", "method", r.Method, "path", r.URL.Path, err.Error())
+	writeJSON(w, http.StatusUnauthorized, err.Error())
+}

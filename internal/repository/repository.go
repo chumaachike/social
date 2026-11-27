@@ -33,8 +33,8 @@ type Repository struct {
 		GetByPostID(context.Context, int64) ([]Comment, error)
 	}
 	Follower interface {
-		Follow(context.Context, string, string) error
-		Unfollow(context.Context, string, string) error
+		Follow(context.Context, int64, int64) error
+		Unfollow(context.Context, int64, int64) error
 	}
 }
 

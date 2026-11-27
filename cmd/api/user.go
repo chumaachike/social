@@ -13,7 +13,10 @@ import (
 
 type userKey string
 
-const userCtx userKey = "user"
+const (
+	authUserCtx userKey = "authenticated_user"
+	userCtx     userKey = "requested_user"
+)
 
 // GetUser godoc
 //
@@ -25,20 +28,21 @@ const userCtx userKey = "user"
 //	@Success		200		{object}	repository.User
 //	@Failure		400		{object}	ErrorResponse
 //	@Failure		401		{object}	ErrorResponse
-//	@Failure		404		{string}	string
+//	@Failure		404		{string}	ErrorResponse
 //	@Failure		500		{object}	ErrorResponse
 //	@Security		ApiKeyAuth
 //	@Router			/users/{userID} [get]
 func (app *application) getUser(w http.ResponseWriter, r *http.Request) {
 	user, ok := getUserFromContext(r)
 	if !ok {
-		app.badRequestResponse(w, r, fmt.Errorf("no userID provided"))
+		app.internalServerError(w, r, errors.New("requested user missing from context"))
 		return
 	}
 
-	if err := app.jsonResponse(w, http.StatusOK, user); err != nil {
+	if err := app.jsonResponse(
+		w, http.StatusOK, user,
+	); err != nil {
 		app.internalServerError(w, r, err)
-		return
 	}
 }
 
@@ -54,13 +58,14 @@ func (app *application) getUser(w http.ResponseWriter, r *http.Request) {
 //	@Failure		400		{object}	ErrorResponse
 //	@Failure		401		{object}	ErrorResponse
 //	@Failure		409		{object}	ErrorResponse
+//	@Failure		404		{object}	ErrorResponse
 //	@Failure		500		{object}	ErrorResponse
 //	@Security		ApiKeyAuth
 //	@Router			/users/follow [post]
 func (app *application) followUser(w http.ResponseWriter, r *http.Request) {
-	user, ok := getUserFromContext(r)
+	user, ok := getAuthenticatedUserFromContext(r)
 	if !ok {
-		app.badRequestResponse(w, r, fmt.Errorf("authentication required"))
+		app.unauthorizedResponse(w, r, fmt.Errorf("authentication required"))
 		return
 	}
 
@@ -71,33 +76,30 @@ func (app *application) followUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if payload.UserID == "" {
-		app.badRequestResponse(w, r, fmt.Errorf("user_id is required"))
+	if err := Validate.Struct(payload); err != nil {
+		app.badRequestResponse(w, r, err)
 		return
 	}
 
-	followerID := strconv.FormatInt(int64(user.ID), 10)
-
-	if followerID == payload.UserID {
+	if user.ID == payload.UserID {
 		app.badRequestResponse(w, r, fmt.Errorf("you cannot follow yourself"))
 		return
 	}
 
 	ctx := r.Context()
 
-	if err := app.repository.Follower.Follow(
-		ctx,
-		followerID,
-		payload.UserID,
-	); err != nil {
-		switch err {
-		case repository.ErrConflict:
+	if err := app.repository.Follower.Follow(ctx, user.ID, payload.UserID); err != nil {
+		switch {
+		case errors.Is(err, repository.ErrConflict):
 			app.conflictResponse(w, r, err)
-			return
+
+		case errors.Is(err, repository.ErrNotFound):
+			app.notFoundResponse(w, r, errors.New("user not found"))
 		default:
 			app.internalServerError(w, r, err)
-			return
 		}
+
+		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
@@ -105,7 +107,7 @@ func (app *application) followUser(w http.ResponseWriter, r *http.Request) {
 
 type FollowUser struct {
 	// ID of the user to follow or unfollow
-	UserID string `json:"user_id"`
+	UserID int64 `json:"user_id" validate:"required,gt=0" example:"42"`
 }
 
 // UnfollowUser godoc
@@ -123,9 +125,9 @@ type FollowUser struct {
 //	@Security		ApiKeyAuth
 //	@Router			/users/unfollow [post]
 func (app *application) unfollowUser(w http.ResponseWriter, r *http.Request) {
-	user, ok := getUserFromContext(r)
+	user, ok := getAuthenticatedUserFromContext(r)
 	if !ok {
-		app.badRequestResponse(w, r, fmt.Errorf("authentication required"))
+		app.unauthorizedResponse(w, r, fmt.Errorf("authentication required"))
 		return
 	}
 
@@ -136,18 +138,16 @@ func (app *application) unfollowUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if payload.UserID == "" {
-		app.badRequestResponse(w, r, fmt.Errorf("user_id is required"))
+	if err := Validate.Struct(payload); err != nil {
+		app.badRequestResponse(w, r, err)
 		return
 	}
-
-	followerID := strconv.FormatInt(int64(user.ID), 10)
 
 	ctx := r.Context()
 
 	if err := app.repository.Follower.Unfollow(
 		ctx,
-		followerID,
+		user.ID,
 		payload.UserID,
 	); err != nil {
 		app.internalServerError(w, r, err)
@@ -161,18 +161,21 @@ func (app *application) userContextMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := chi.URLParam(r, "userID")
 
-		if userID == "" {
-			app.badRequestResponse(w, r, fmt.Errorf("missing user ID"))
+		id, err := strconv.ParseInt(userID, 10, 64)
+
+		if err != nil || id <= 0 {
+			app.badRequestResponse(w, r, errors.New("invalid user ID"))
 			return
 		}
 
 		ctx := r.Context()
 
-		user, err := app.repository.User.GetUser(ctx, userID)
+		user, err := app.repository.User.GetUser(ctx, strconv.FormatInt(id, 10))
+
 		if err != nil {
 			switch {
 			case errors.Is(err, repository.ErrNotFound):
-				http.Error(w, "user not found", http.StatusNotFound)
+				app.notFoundResponse(w, r, errors.New("user not found"))
 			default:
 				app.internalServerError(w, r, err)
 			}
@@ -187,5 +190,10 @@ func (app *application) userContextMiddleware(next http.Handler) http.Handler {
 
 func getUserFromContext(r *http.Request) (repository.User, bool) {
 	user, ok := r.Context().Value(userCtx).(repository.User)
+	return user, ok
+}
+
+func getAuthenticatedUserFromContext(r *http.Request) (repository.User, bool) {
+	user, ok := r.Context().Value(authUserCtx).(repository.User)
 	return user, ok
 }
