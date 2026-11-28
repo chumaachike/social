@@ -18,15 +18,15 @@ var (
 type Repository struct {
 	Post interface {
 		Create(context.Context, *Post) error
-		GetByID(context.Context, string) (Post, error)
-		DeleteByID(context.Context, string) error
-		UpdateByID(context.Context, Post) error
+		GetByID(context.Context, int64) (Post, error)
+		DeleteByID(context.Context, int64) error
+		UpdateByID(context.Context, *Post) error
 		GetUserFeed(context.Context, string, PaginatedFeedQuery) ([]PostWithMetadata, error)
 	}
 
 	User interface {
 		Create(context.Context, *sql.Tx, *User) error
-		GetUser(context.Context, string) (User, error)
+		GetUser(context.Context, int64) (User, error)
 		CreateAndInvite(context.Context, *User, string, time.Duration) error
 	}
 	Comment interface {

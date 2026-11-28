@@ -170,7 +170,7 @@ func (app *application) userContextMiddleware(next http.Handler) http.Handler {
 
 		ctx := r.Context()
 
-		user, err := app.repository.User.GetUser(ctx, strconv.FormatInt(id, 10))
+		user, err := app.repository.User.GetUser(ctx, id)
 
 		if err != nil {
 			switch {

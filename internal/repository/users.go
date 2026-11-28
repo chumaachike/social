@@ -64,7 +64,7 @@ func (r *UserRepository) Create(ctx context.Context, tx *sql.Tx, user *User) err
 	return nil
 }
 
-func (r UserRepository) GetUser(ctx context.Context, userID string) (User, error) {
+func (r UserRepository) GetUser(ctx context.Context, userID int64) (User, error) {
 	query := `
 		SELECT id, username, email FROM users WHERE id = $1
 	`

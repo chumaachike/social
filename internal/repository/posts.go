@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 )
 
 type Post struct {
@@ -18,12 +17,13 @@ type Post struct {
 	Title     string    `json:"title"`
 	UserID    int64     `json:"user_id"`
 	Tags      []string  `json:"tags"`
-	CreatedAt string    `json:"created_at"`
-	UpdatedAt string    `json:"updated_at"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 	Version   int       `json:"version"`
-	Comments  []Comment `json:"comments"`
+	Comments  []Comment `json:"comments,omitempty"`
 	User      User      `json:"user"`
 }
+
 type PostWithMetadata struct {
 	Post
 	CommentsCount int `json:"comment_count"`
@@ -133,11 +133,14 @@ func (r *PostRepository) GetUserFeed(
 func (r *PostRepository) Create(ctx context.Context, post *Post) error {
 	query := `
 		INSERT INTO posts (content, title, user_id, tags)
-		VALUES ($1, $2, $3, $4) RETURNING id, created_at, updated_at
+		VALUES ($1, $2, $3, $4)
+		RETURNING id, version, created_at, updated_at
 	`
+
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
-	if err := r.db.QueryRowContext(
+
+	err := r.db.QueryRowContext(
 		ctx,
 		query,
 		post.Content,
@@ -146,27 +149,29 @@ func (r *PostRepository) Create(ctx context.Context, post *Post) error {
 		pq.Array(post.Tags),
 	).Scan(
 		&post.ID,
+		&post.Version,
 		&post.CreatedAt,
 		&post.UpdatedAt,
-	); err != nil {
-		return err
+	)
+	if err != nil {
+		return fmt.Errorf("create post: %w", err)
 	}
+
 	return nil
 }
 
-func (r *PostRepository) GetByID(ctx context.Context, id string) (Post, error) {
+func (r *PostRepository) GetByID(ctx context.Context, id int64) (Post, error) {
 	query := `
-		SELECT id, content, title, user_id, tags, version, created_at, updated_at FROM posts WHERE id= $1
+		SELECT id, content, title, user_id, tags, version, created_at, updated_at
+		FROM posts
+		WHERE id = $1
 	`
+
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
 	var post Post
-	if err := r.db.QueryRowContext(
-		ctx,
-		query,
-		id,
-	).Scan(
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&post.ID,
 		&post.Content,
 		&post.Title,
@@ -175,57 +180,92 @@ func (r *PostRepository) GetByID(ctx context.Context, id string) (Post, error) {
 		&post.Version,
 		&post.CreatedAt,
 		&post.UpdatedAt,
-	); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
 			return Post{}, ErrNotFound
-		default:
-			return Post{}, fmt.Errorf("failed to get post by id: %w", err)
 		}
+		return Post{}, fmt.Errorf("get post by id: %w", err)
 	}
+
 	return post, nil
 }
 
-func (r *PostRepository) DeleteByID(ctx context.Context, id string) error {
+func (r *PostRepository) UpdateByID(ctx context.Context, post *Post) error {
 	query := `
-		DELETE FROM posts WHERE id = $1
-	`
-	ctx, cancel := context.WithTimeout(ctx, time.Second*5)
-	defer cancel()
-	res, err := r.db.ExecContext(ctx, query, id)
-	if err != nil {
-		return err
-	}
-	rowAffected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if rowAffected == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
-func (r *PostRepository) UpdateByID(ctx context.Context, post Post) error {
-	query := `
-		UPDATE posts 
+		UPDATE posts
 		SET title = $1,
-			content = $2, version = version + 1,
-			updated_at = NOW()
+		    content = $2,
+		    version = version + 1,
+		    updated_at = NOW()
 		WHERE id = $3 AND version = $4
-		RETURNING version
+		RETURNING version, updated_at
 	`
+
 	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
 	defer cancel()
 
-	err := r.db.QueryRowContext(ctx, query, post.Title, post.Content, post.ID, post.Version).Scan(&post.Version)
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		post.Title,
+		post.Content,
+		post.ID,
+		post.Version,
+	).Scan(
+		&post.Version,
+		&post.UpdatedAt,
+	)
 	if err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return ErrNotFound
-		default:
-			return err
+		if errors.Is(err, sql.ErrNoRows) {
+			return r.resolveUpdateNoRows(ctx, post.ID)
 		}
+		return fmt.Errorf("update post: %w", err)
 	}
+
 	return nil
+}
+
+func (r *PostRepository) DeleteByID(ctx context.Context, id int64) error {
+	query := `
+		DELETE FROM posts
+		WHERE id = $1
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, QueryTimeoutDuration)
+	defer cancel()
+
+	res, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return fmt.Errorf("delete post: %w", err)
+	}
+
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("delete post rows affected: %w", err)
+	}
+
+	if rowsAffected == 0 {
+		return ErrNotFound
+	}
+
+	return nil
+}
+
+func (r *PostRepository) resolveUpdateNoRows(ctx context.Context, id int64) error {
+	var exists bool
+	err := r.db.QueryRowContext(
+		ctx,
+		`SELECT EXISTS(SELECT 1 FROM posts WHERE id = $1)`,
+		id,
+	).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("check post existence on update: %w", err)
+	}
+
+	if !exists {
+		return ErrNotFound
+	}
+
+	return ErrConflict
 }
