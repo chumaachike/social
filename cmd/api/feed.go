@@ -12,9 +12,9 @@ import (
 //	@Description	Retrieves a paginated and sorted user feed.
 //	@Tags			Feed
 //	@Produce		json
-//	@Param			limit	query	int		false	"Number of posts"	default(20) minimum(1) maximum(100)
-//	@Param			offset	query	int		false	"Pagination offset"	default(0) minimum(0)
-//	@Param			sort	query	string	false	"Sort order"		default(desc) Enums(asc, desc)
+//	@Param			limit	query		int		false	"Number of posts"	default(20)		minimum(1)	maximum(100)
+//	@Param			offset	query		int		false	"Pagination offset"	default(0)		minimum(0)
+//	@Param			sort	query		string	false	"Sort order"		default(desc)	Enums(asc, desc)
 //	@Success		200		{array}		repository.Post
 //	@Failure		400		{object}	map[string]string
 //	@Failure		500		{object}	map[string]string

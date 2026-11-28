@@ -10,9 +10,14 @@ import (
 )
 
 type RegisterUserPayload struct {
-	Email    string `json:"email" validate:"required,max=100"`
-	Username string `json:"username" validate:"required,email=255"`
-	Password string `json:"password" validate:"required,min=3,max=72"`
+	Email    string `json:"email" validate:"required,email,max=255"`
+	Username string `json:"username" validate:"required,alphanum,min=3,max=30"`
+	Password string `json:"password" validate:"required,min=8,max=72"`
+}
+
+type UserWithToken struct {
+	*repository.User
+	Token string `json:"token"`
 }
 
 // registerUserHandler godoc
@@ -23,7 +28,7 @@ type RegisterUserPayload struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			payload	body		RegisterUserPayload	true	"User registration payload"
-//	@Success		201		{object}	repository.User
+//	@Success		201		{object}	UserWithToken
 //	@Failure		400		{object}	error
 //	@Failure		500		{object}	error
 //	@Router			/authentication/user [post]
@@ -54,9 +59,9 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 
 	// store
 	hash := sha256.Sum256([]byte(plainToken))
-	hex.EncodeToString(hash[:])
+	hashedToken := hex.EncodeToString(hash[:])
 
-	if err := app.repository.User.CreateAndInvite(ctx, user, "token-121", app.config.mail.exp); err != nil {
+	if err := app.repository.User.CreateAndInvite(ctx, user, hashedToken, app.config.mail.exp); err != nil {
 		switch err {
 		case repository.ErrDuplicateEmail:
 			app.badRequestResponse(w, r, err)
@@ -67,8 +72,12 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 		}
 		return
 	}
+	createdUser := UserWithToken{
+		User:  user,
+		Token: plainToken,
+	}
 
-	if err := app.jsonResponse(w, http.StatusCreated, user); err != nil {
+	if err := app.jsonResponse(w, http.StatusCreated, createdUser); err != nil {
 		app.internalServerError(w, r, err)
 	}
 
